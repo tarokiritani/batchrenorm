@@ -19,9 +19,10 @@ class BatchRenorm(torch.jit.ScriptModule):
         self.register_buffer(
             "running_std", torch.ones(num_features, dtype=torch.float)
         )
-        self.register_buffer(
-            "num_batches_tracked", torch.tensor(0, dtype=torch.long)
-        )
+        self.num_batches_tracked = 0
+        #self.register_buffer(
+        #    "num_batches_tracked", torch.tensor(0, dtype=torch.long)
+        #)
         self.weight = torch.nn.Parameter(
             torch.ones(num_features, dtype=torch.float)
         )
@@ -37,16 +38,22 @@ class BatchRenorm(torch.jit.ScriptModule):
         raise NotImplementedError()  # pragma: no cover
 
     @property
-    def rmax(self) -> torch.Tensor:
-        return (2 / 35000 * self.num_batches_tracked + 25 / 35).clamp_(
-            1.0, 3.0
-        )
+    def rmax(self):
+        rmax_ = 2 / 70000 * self.num_batches_tracked + 25 / 35
+        if rmax_ < 1.0:
+            rmax_ = 1.0
+        elif rmax_ > 5.0:
+            rmax_ = 5.0
+        return rmax_
 
     @property
-    def dmax(self) -> torch.Tensor:
-        return (5 / 20000 * self.num_batches_tracked - 25 / 20).clamp_(
-            0.0, 5.0
-        )
+    def dmax(self):
+        dmax_ = 5 / 20000 * self.num_batches_tracked - 25 / 20
+        if dmax_ > 7.0:
+            dmax_ = 7.0
+        elif dmax_ < 0.0:
+            dmax_ = 0.0
+        return dmax_
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         self._check_input_dim(x)
